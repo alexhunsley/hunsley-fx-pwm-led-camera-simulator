@@ -187,7 +187,6 @@
           <option value="burano">Sony BURANO (Rolling/18.9 ms — FF 8.6K; ~16.9 ms 6K FFc)</option>
           <option value="pocket6k">Blackmagic Pocket Cinema 6K (Rolling/19.8 ms — 6K S35)</option>
           <option value="komodo">RED KOMODO 6K (Global shutter)</option>
-          <option value="global">Generic global shutter</option>
           <option value="custom">Custom</option>
         </select>
       </label>
@@ -363,8 +362,7 @@
     ursa12k: { type: "rolling", readout: 15.7 },
     burano:  { type: "rolling", readout: 18.9 },
     pocket6k:{ type: "rolling", readout: 19.8 },
-    komodo:  { type: "global",  readout: 0.0 },
-    global:  { type: "global",  readout: 0.0 }
+    komodo:  { type: "global",  readout: 0.0 }
   };
 
   const c = $("canvas");

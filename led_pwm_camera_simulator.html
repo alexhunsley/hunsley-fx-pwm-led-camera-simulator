@@ -879,6 +879,12 @@
       $("playbackSpeed").value = "0.25";
       $("colourMode").value = "white";
     } else if (p === "bad240") {
+      // 240 fps is only reached in fast windowed/cropped sensor modes, whose
+      // readout is far shorter than a full-frame 7.6 ms — using 7.6 ms here would
+      // exceed the 4.17 ms frame period and (correctly) trip the overrun warning,
+      // distracting from the PWM-flicker point this preset is meant to show.
+      $("cameraPreset").value = "custom";
+      $("readoutMs").value = 2.5;
       $("fps").value = "240";
       $("shutterAngle").value = 180;
       $("pwmHz").value = 400;

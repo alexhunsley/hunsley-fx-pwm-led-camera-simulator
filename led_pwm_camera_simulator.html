@@ -66,6 +66,10 @@
     margin: 9px 0;
     font-size: 13px;
   }
+  label.stack {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
   input, select, button {
     width: 100%;
     background: #121212;
@@ -171,7 +175,7 @@
 
     <div class="group">
       <h2>Camera</h2>
-      <label>
+      <label class="stack">
         Preset
         <select id="cameraPreset">
           <option value="venice2">Sony VENICE 2 (Rolling/3.0 ms — FF 8.2K; ~2.1 ms S35 6K)</option>

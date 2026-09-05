@@ -258,7 +258,7 @@
         Presets
         <select id="simPreset">
           <option value="">Choose…</option>
-          <option value="badBasic">Bad: 400 Hz / 24 fps / narrow shutter</option>
+          <option value="badBasic">Bad: 400 Hz / 60 fps / narrow shutter</option>
           <option value="badHighFps">Bad: 400 Hz / 120 fps / 5% duty</option>
           <option value="bad240">Very bad: 400 Hz / 240 fps</option>
           <option value="badColour">Bad colour mix: low-duty RGB component</option>
@@ -863,7 +863,7 @@
     $("phaseDeg").value = 0;
 
     if (p === "badBasic") {
-      $("fps").value = "24";
+      $("fps").value = "60";
       $("shutterAngle").value = 45;
       $("pwmHz").value = 400;
       $("duty").value = 10;

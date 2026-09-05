@@ -235,9 +235,17 @@
         <button data-pwm="2000">2 kHz</button>
         <button data-pwm="20000">20 kHz</button>
       </div>
-      <div style="margin-top:8px">
-        <button id="stressTest">Load obvious flicker test</button>
-      </div>
+      <label style="margin-top:10px">
+        Presets
+        <select id="simPreset">
+          <option value="">Choose…</option>
+          <option value="badBasic">Bad: 400 Hz / 24 fps / narrow shutter</option>
+          <option value="badHighFps">Bad: 400 Hz / 120 fps / 5% duty</option>
+          <option value="bad240">Very bad: 400 Hz / 240 fps</option>
+          <option value="badColour">Bad colour mix: low-duty RGB component</option>
+          <option value="good20k">Good comparison: 20 kHz / 24 fps</option>
+        </select>
+      </label>
     </div>
 
     <div class="group">
@@ -562,18 +570,58 @@
     });
   });
 
-  $("stressTest").addEventListener("click", () => {
+  $("simPreset").addEventListener("change", () => {
+    const p = $("simPreset").value;
+    if (!p) return;
+
+    // Common rolling-shutter camera baseline.
     $("cameraPreset").value = "alexa35";
     $("shutterType").value = "rolling";
     $("readoutMs").value = 7.6;
-    $("fps").value = "120";
-    $("shutterAngle").value = 90;
-    $("pwmHz").value = 400;
-    $("duty").value = 5;
-    $("dutyNum").value = 5;
     $("phaseDeg").value = 0;
-    $("playbackSpeed").value = "0.25";
-    $("colourMode").value = "rainbow";
+
+    if (p === "badBasic") {
+      $("fps").value = "24";
+      $("shutterAngle").value = 45;
+      $("pwmHz").value = 400;
+      $("duty").value = 10;
+      $("dutyNum").value = 10;
+      $("playbackSpeed").value = "0.5";
+      $("colourMode").value = "white";
+    } else if (p === "badHighFps") {
+      $("fps").value = "120";
+      $("shutterAngle").value = 90;
+      $("pwmHz").value = 400;
+      $("duty").value = 5;
+      $("dutyNum").value = 5;
+      $("playbackSpeed").value = "0.25";
+      $("colourMode").value = "white";
+    } else if (p === "bad240") {
+      $("fps").value = "240";
+      $("shutterAngle").value = 180;
+      $("pwmHz").value = 400;
+      $("duty").value = 10;
+      $("dutyNum").value = 10;
+      $("playbackSpeed").value = "0.125";
+      $("colourMode").value = "white";
+    } else if (p === "badColour") {
+      $("fps").value = "120";
+      $("shutterAngle").value = 90;
+      $("pwmHz").value = 400;
+      $("duty").value = 20;
+      $("dutyNum").value = 20;
+      $("playbackSpeed").value = "0.25";
+      $("colourMode").value = "rainbow";
+    } else if (p === "good20k") {
+      $("fps").value = "24";
+      $("shutterAngle").value = 180;
+      $("pwmHz").value = 20000;
+      $("duty").value = 20;
+      $("dutyNum").value = 20;
+      $("playbackSpeed").value = "1";
+      $("colourMode").value = "rainbow";
+    }
+
     simTime = 0;
     updateDerived();
   });

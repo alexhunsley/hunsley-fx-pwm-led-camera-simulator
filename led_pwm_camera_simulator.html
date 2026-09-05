@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LED PWM / Camera Simulator</title>
+<style>
+  :root {
+    --bg: #111;
+    --panel: #1b1b1b;
+    --panel2: #242424;
+    --text: #f2f2f2;
+    --muted: #aaa;
+    --line: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap {
+    display: grid;
+    grid-template-columns: minmax(300px, 390px) 1fr;
+    min-height: 100vh;
+  }
+  .controls {
+    padding: 18px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+  }
+  .viewer {
+    padding: 18px;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 6px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 18px;
+  }
+  .group {
+    margin: 0 0 18px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel2);
+  }
+  .group h2 {
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+  label {
+    display: grid;
+    grid-template-columns: 1fr 122px;
+    align-items: center;
+    gap: 10px;
+    margin: 9px 0;
+    font-size: 13px;
+  }
+  input, select, button {
+    width: 100%;
+    background: #121212;
+    color: var(--text);
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 7px 8px;
+    font: inherit;
+  }
+  input[type="range"] {
+    padding: 0;
+  }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  button {
+    cursor: pointer;
+    background: #2e2e2e;
+  }
+  button:hover { background: #383838; }
+
+  .screen {
+    position: relative;
+    width: min(780px, 100%);
+    aspect-ratio: 16 / 9;
+    background: #080808;
+    border: 1px solid #444;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: auto;
+  }
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 8px;
+    width: min(780px, 100%);
+  }
+  .metric {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .metric .k {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .metric .v {
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+  }
+  .note {
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 780px;
+    line-height: 1.45;
+  }
+  .inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inline input[type="checkbox"] { width: auto; }
+  @media (max-width: 850px) {
+    .wrap { grid-template-columns: 1fr; }
+    .controls { border-right: 0; border-bottom: 1px solid var(--line); }
+    .hud { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="controls">
+    <h1>LED PWM / Camera Simulator</h1>
+    <div class="sub">
+      Simulates what a camera records from PWM-driven LEDs. The browser does not render at the PWM frequency;
+      each virtual camera exposure is integrated mathematically.
+    </div>
+
+    <div class="group">
+      <h2>Camera</h2>
+      <label>
+        Preset
+        <select id="cameraPreset">
+          <option value="alexa35">ARRI ALEXA 35</option>
+          <option value="minilf">ARRI ALEXA Mini LF</option>
+          <option value="venice2">Sony VENICE 2</option>
+          <option value="vraptor">RED V-RAPTOR 8K VV</option>
+          <option value="burano">Sony BURANO</option>
+          <option value="global">Generic global shutter</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label>
+        Shutter type
+        <select id="shutterType">
+          <option value="rolling">Rolling</option>
+          <option value="global">Global</option>
+        </select>
+      </label>
+      <label>
+        Readout time (ms)
+        <input id="readoutMs" type="number" min="0" step="0.1" value="7.6" />
+      </label>
+    </div>
+
+    <div class="group">
+      <h2>Shooting settings</h2>
+      <label>
+        FPS
+        <select id="fps">
+          <option>23.976</option>
+          <option selected>24</option>
+          <option>25</option>
+          <option>29.97</option>
+          <option>30</option>
+          <option>50</option>
+          <option>59.94</option>
+          <option>60</option>
+          <option>120</option>
+          <option>240</option>
+        </select>
+      </label>
+      <label>
+        Shutter angle (°)
+        <input id="shutterAngle" type="number" min="1" max="360" step="1" value="180" />
+      </label>
+      <label>
+        Exposure time
+        <input id="exposureText" type="text" value="" readonly />
+      </label>
+    </div>
+
+    <div class="group">
+      <h2>LED PWM</h2>
+      <label>
+        PWM frequency (Hz)
+        <input id="pwmHz" type="number" min="1" step="1" value="400" />
+      </label>
+      <label>
+        Brightness / duty (%)
+        <input id="duty" type="range" min="0" max="100" step="0.1" value="25" />
+      </label>
+      <label>
+        Duty value
+        <input id="dutyNum" type="number" min="0" max="100" step="0.1" value="25" />
+      </label>
+      <label>
+        PWM phase (°)
+        <input id="phaseDeg" type="number" min="0" max="359.999" step="1" value="0" />
+      </label>
+      <div class="row2">
+        <button data-pwm="400">400 Hz</button>
+        <button data-pwm="1200">1.2 kHz</button>
+        <button data-pwm="2000">2 kHz</button>
+        <button data-pwm="20000">20 kHz</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Simulation</h2>
+      <label>
+        Playback speed
+        <select id="playbackSpeed">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="5">5×</option>
+          <option value="10">10×</option>
+        </select>
+      </label>
+      <label>
+        Sensor strips
+        <input id="strips" type="number" min="16" max="360" step="1" value="120" />
+      </label>
+      <div class="inline">
+        <input id="pause" type="checkbox" />
+        <span>Pause animation</span>
+      </div>
+    </div>
+  </section>
+
+  <main class="viewer">
+    <div class="screen">
+      <canvas id="canvas" width="960" height="540"></canvas>
+    </div>
+
+    <div class="hud">
+      <div class="metric"><div class="k">PWM cycles / exposure</div><div class="v" id="mExposure">—</div></div>
+      <div class="metric"><div class="k">PWM cycles / sensor readout</div><div class="v" id="mReadout">—</div></div>
+      <div class="metric"><div class="k">Temporal alias / beat</div><div class="v" id="mAlias">—</div></div>
+      <div class="metric"><div class="k">PWM period</div><div class="v" id="mPwmPeriod">—</div></div>
+    </div>
+
+    <div class="note">
+      Camera preset readout times are representative approximate values and vary by sensor mode.
+      The LED grid is divided into horizontal sensor-time strips so rolling-shutter banding can be visualised.
+      Global shutter uses one exposure start time for the whole image.
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  const presets = {
+    alexa35: { type: "rolling", readout: 7.6 },
+    minilf:  { type: "rolling", readout: 7.4 },
+    venice2: { type: "rolling", readout: 3.0 },
+    vraptor: { type: "rolling", readout: 8.0 },
+    burano:  { type: "rolling", readout: 18.9 },
+    global:  { type: "global",  readout: 0.0 }
+  };
+
+  const c = $("canvas");
+  const ctx = c.getContext("2d");
+
+  let simTime = 0;
+  let lastReal = performance.now();
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // Exact integral of a 0/1 PWM square wave over [t0, t1].
+  // Duty is 0..1. phaseCycles is 0..1.
+  function pwmIntegral(t0, t1, freq, duty, phaseCycles) {
+    if (t1 <= t0 || duty <= 0) return 0;
+    if (duty >= 1) return t1 - t0;
+
+    const period = 1 / freq;
+
+    function cumulativeOn(t) {
+      // Convert time to cycles with phase, then integrate complete cycles + partial cycle.
+      const x = t / period + phaseCycles;
+      const whole = Math.floor(x);
+      let frac = x - whole;
+      if (frac < 0) frac += 1;
+      return (whole * duty + Math.min(frac, duty)) * period;
+    }
+
+    return cumulativeOn(t1) - cumulativeOn(t0);
+  }
+
+  function integratedBrightness(tStart, exposure, freq, duty, phaseCycles) {
+    if (exposure <= 0) return 0;
+    return clamp(pwmIntegral(tStart, tStart + exposure, freq, duty, phaseCycles) / exposure, 0, 1);
+  }
+
+  function aliasFreq(pwm, fps) {
+    const k = Math.round(pwm / fps);
+    const raw = Math.abs(pwm - k * fps);
+    // Already in the frame-sampled baseband because nearest integer multiple is used.
+    return raw;
+  }
+
+  function updateDerived() {
+    const fps = parseFloat($("fps").value);
+    const angle = parseFloat($("shutterAngle").value);
+    const exposure = (angle / 360) / fps;
+    const pwm = parseFloat($("pwmHz").value);
+    const readout = parseFloat($("readoutMs").value) / 1000;
+    const type = $("shutterType").value;
+
+    $("exposureText").value = `${(exposure * 1000).toFixed(3)} ms  (1/${(1/exposure).toFixed(1)})`;
+    $("mExposure").textContent = (pwm * exposure).toFixed(3);
+    $("mReadout").textContent = type === "global" ? "0 (global)" : (pwm * readout).toFixed(3);
+    $("mAlias").textContent = `${aliasFreq(pwm, fps).toFixed(3)} Hz`;
+    $("mPwmPeriod").textContent = `${(1000 / pwm).toFixed(4)} ms`;
+  }
+
+  function draw() {
+    const fps = parseFloat($("fps").value);
+    const angle = parseFloat($("shutterAngle").value);
+    const exposure = (angle / 360) / fps;
+    const pwm = Math.max(1, parseFloat($("pwmHz").value));
+    const duty = clamp(parseFloat($("duty").value) / 100, 0, 1);
+    const phaseCycles = (parseFloat($("phaseDeg").value) || 0) / 360;
+    const readout = Math.max(0, parseFloat($("readoutMs").value) / 1000);
+    const rolling = $("shutterType").value === "rolling";
+    const strips = Math.max(16, Math.min(360, parseInt($("strips").value, 10) || 120));
+
+    const W = c.width, H = c.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#090909";
+    ctx.fillRect(0, 0, W, H);
+
+    // Camera-frame time: quantise simulation time to the virtual camera's frame cadence.
+    const frameIndex = Math.floor(simTime * fps);
+    const frameStart = frameIndex / fps;
+
+    const marginX = 120, marginY = 55;
+    const gridW = W - marginX * 2;
+    const gridH = H - marginY * 2;
+    const cols = 4, rows = 4;
+    const gap = 22;
+    const cellW = (gridW - gap * (cols - 1)) / cols;
+    const cellH = (gridH - gap * (rows - 1)) / rows;
+    const radius = Math.min(cellW, cellH) * 0.27;
+
+    // Render each horizontal sensor-time strip independently.
+    for (let s = 0; s < strips; s++) {
+      const y0 = (s / strips) * H;
+      const y1 = ((s + 1) / strips) * H;
+      const sensorFrac = (s + 0.5) / strips;
+      const rowOffset = rolling ? sensorFrac * readout : 0;
+      const tStart = frameStart + rowOffset;
+      const b = integratedBrightness(tStart, exposure, pwm, duty, phaseCycles);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, y0, W, Math.ceil(y1 - y0) + 1);
+      ctx.clip();
+
+      for (let gy = 0; gy < rows; gy++) {
+        for (let gx = 0; gx < cols; gx++) {
+          const cx = marginX + gx * (cellW + gap) + cellW / 2;
+          const cy = marginY + gy * (cellH + gap) + cellH / 2;
+
+          // Very dark base/body.
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius * 1.25, 0, Math.PI * 2);
+          ctx.fillStyle = "rgb(28,28,28)";
+          ctx.fill();
+
+          // Emissive disc. Gamma-ish mapping is only for monitor appearance.
+          const shown = Math.pow(b, 1 / 2.2);
+          const v = Math.round(10 + shown * 245);
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgb(${v},${v},${v})`;
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    // Grid labels / frame info.
+    ctx.font = "20px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(`Virtual camera frame ${frameIndex}`, 20, 30);
+
+    ctx.font = "14px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillText(
+      `${fps} fps · ${angle}° · ${pwm.toFixed(0)} Hz PWM · ${(duty*100).toFixed(1)}% duty · ${rolling ? readout*1000 + " ms rolling readout" : "global shutter"}`,
+      20, H - 18
+    );
+  }
+
+  function animate(now) {
+    const dt = Math.min(0.1, (now - lastReal) / 1000);
+    lastReal = now;
+
+    if (!$("pause").checked) {
+      simTime += dt * parseFloat($("playbackSpeed").value);
+    }
+
+    draw();
+    requestAnimationFrame(animate);
+  }
+
+  $("cameraPreset").addEventListener("change", e => {
+    const p = presets[e.target.value];
+    if (!p) return;
+    $("shutterType").value = p.type;
+    $("readoutMs").value = p.readout;
+    updateDerived();
+  });
+
+  $("shutterType").addEventListener("change", () => {
+    if ($("shutterType").value === "global") $("readoutMs").value = 0;
+    updateDerived();
+  });
+
+  $("duty").addEventListener("input", () => {
+    $("dutyNum").value = $("duty").value;
+  });
+
+  $("dutyNum").addEventListener("input", () => {
+    $("duty").value = clamp(parseFloat($("dutyNum").value) || 0, 0, 100);
+  });
+
+  document.querySelectorAll("[data-pwm]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $("pwmHz").value = btn.dataset.pwm;
+      updateDerived();
+    });
+  });
+
+  [
+    "fps", "shutterAngle", "pwmHz", "readoutMs",
+    "shutterType", "duty", "dutyNum", "phaseDeg", "strips"
+  ].forEach(id => {
+    $(id).addEventListener("input", updateDerived);
+    $(id).addEventListener("change", updateDerived);
+  });
+
+  updateDerived();
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

@@ -311,6 +311,7 @@
       Rainbow mode is a stress palette with many dominant-channel + low-secondary-channel colours, specifically to reveal this behaviour.
       Global shutter uses one exposure start time for the whole image.
       Playback walks through every virtual camera frame in order at a controlled presentation rate (capped at 30 displayed frames/s), so Safari cannot skip camera frames.
+      Click any LED to select it for the history graph; the selected LED is outlined and the graph shows its commanded RGB percentages.
       The history graph shows the mathematically recorded RGB brightness across recent camera frames.
     </div>
   </main>
@@ -334,6 +335,7 @@
 
   let virtualFrame = 0;
   let lastPresentedAt = performance.now();
+  let selectedLed = { gx: 0, gy: 0 };
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
@@ -522,6 +524,14 @@
           ctx.arc(cx, cy, radius, 0, Math.PI * 2);
           ctx.fillStyle = `rgb(${vr},${vg},${vb})`;
           ctx.fill();
+
+          if (gx === selectedLed.gx && gy === selectedLed.gy) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 1.38, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255,255,255,0.95)";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+          }
         }
       }
       ctx.restore();
@@ -579,7 +589,7 @@
     const count = 96;
     const start = Math.max(0, virtualFrame - count + 1);
     const end = start + count;
-    const gx = 0, gy = 0;
+    const gx = selectedLed.gx, gy = selectedLed.gy;
 
     // Grid
     hctx.strokeStyle = "rgba(255,255,255,0.10)";
@@ -615,7 +625,11 @@
 
     hctx.font = "13px system-ui";
     hctx.fillStyle = "rgba(255,255,255,0.8)";
-    hctx.fillText("Frame history: LED 1 RGB recorded brightness", 12, 15);
+    const ledNumber = gy * 4 + gx + 1;
+    const masterDuty = clamp(parseFloat($("duty").value) / 100, 0, 1);
+    const duties = ledChannelDuties($("colourMode").value, gx, gy, 4, 4, masterDuty);
+    const cmd = duties.map(v => Math.round(v * 100));
+    hctx.fillText(`Frame history: LED ${ledNumber} — RGB command ${cmd[0]}% / ${cmd[1]}% / ${cmd[2]}%`, 12, 15);
     hctx.fillStyle = "rgb(255,90,90)"; hctx.fillText("R", 12, 42);
     hctx.fillStyle = "rgb(90,255,90)"; hctx.fillText("G", 12, 60);
     hctx.fillStyle = "rgb(100,140,255)"; hctx.fillText("B", 12, 78);
@@ -655,6 +669,41 @@
 
     requestAnimationFrame(animate);
   }
+
+  c.addEventListener("click", (ev) => {
+    const rect = c.getBoundingClientRect();
+    const sx = c.width / rect.width;
+    const sy = c.height / rect.height;
+    const mx = (ev.clientX - rect.left) * sx;
+    const my = (ev.clientY - rect.top) * sy;
+
+    const W = c.width, H = c.height;
+    const marginX = 120, marginY = 55;
+    const gridW = W - marginX * 2;
+    const gridH = H - marginY * 2;
+    const cols = 4, rows = 4;
+    const gap = 22;
+    const cellW = (gridW - gap * (cols - 1)) / cols;
+    const cellH = (gridH - gap * (rows - 1)) / rows;
+    const radius = Math.min(cellW, cellH) * 0.27;
+
+    let best = null;
+    for (let gy = 0; gy < rows; gy++) {
+      for (let gx = 0; gx < cols; gx++) {
+        const cx = marginX + gx * (cellW + gap) + cellW / 2;
+        const cy = marginY + gy * (cellH + gap) + cellH / 2;
+        const d2 = (mx - cx) ** 2 + (my - cy) ** 2;
+        if (d2 <= (radius * 1.5) ** 2 && (!best || d2 < best.d2)) {
+          best = { gx, gy, d2 };
+        }
+      }
+    }
+    if (best) {
+      selectedLed = { gx: best.gx, gy: best.gy };
+      draw();
+      drawHistory();
+    }
+  });
 
   const pauseEl = $("pause");
   const prevFrameEl = $("prevFrame");

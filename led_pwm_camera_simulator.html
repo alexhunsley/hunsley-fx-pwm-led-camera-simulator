@@ -242,8 +242,12 @@
       <label>
         Playback speed
         <select id="playbackSpeed">
-          <option value="0.25">0.25×</option>
-          <option value="0.5">0.5×</option>
+          <option value="0.015625">1/64×</option>
+          <option value="0.03125">1/32×</option>
+          <option value="0.0625">1/16×</option>
+          <option value="0.125">1/8×</option>
+          <option value="0.25">1/4×</option>
+          <option value="0.5">1/2×</option>
           <option value="1" selected>1×</option>
           <option value="2">2×</option>
           <option value="5">5×</option>
@@ -285,6 +289,7 @@
       Camera preset readout times are representative approximate values and vary by sensor mode.
       The LED grid is divided into horizontal sensor-time strips so rolling-shutter banding can be visualised.
       RGB is simulated per channel: mixed colours can show channel-specific flicker or colour shifts when one component has a low PWM duty.
+      Rainbow mode is a stress palette with many dominant-channel + low-secondary-channel colours, specifically to reveal this behaviour.
       Global shutter uses one exposure start time for the whole image.
     </div>
   </main>
@@ -391,8 +396,32 @@
       else if (gx === 2) rgb = [0, 1, 0];
       else rgb = [0, 0, 1];
     } else if (mode === "rainbow") {
-      const idx = gy * cols + gx;
-      rgb = hsvToRgb(idx / (cols * rows), 1, 1);
+      // Deliberately chosen "stress palette": many colours have one dominant
+      // channel plus a small secondary/tertiary component. This exposes
+      // channel-specific PWM artefacts much more clearly than evenly spaced HSV.
+      const palette = [
+        [1.00, 0.05, 0.00],  // deep red-orange: tiny green
+        [1.00, 0.10, 0.00],
+        [1.00, 0.25, 0.00],
+        [1.00, 0.60, 0.00],
+
+        [0.60, 1.00, 0.00],  // yellow-green mixes
+        [0.25, 1.00, 0.00],
+        [0.10, 1.00, 0.00],
+        [0.05, 1.00, 0.10],
+
+        [0.00, 1.00, 0.25],  // green-cyan mixes
+        [0.00, 1.00, 0.60],
+        [0.00, 0.25, 1.00],  // mostly blue, some green
+        [0.00, 0.10, 1.00],
+
+        [0.05, 0.00, 1.00],  // mostly blue, tiny red
+        [0.10, 0.00, 1.00],
+        [0.25, 0.00, 1.00],
+        [1.00, 0.00, 0.10]   // mostly red, tiny blue
+      ];
+      const idx = (gy * cols + gx) % palette.length;
+      rgb = palette[idx];
     } else {
       rgb = [1, 1, 1];
     }

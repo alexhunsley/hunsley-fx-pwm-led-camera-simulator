@@ -586,8 +586,13 @@
 
     // Sample the vertical centre of this LED. Since banding is shown in the main
     // display, history focuses on temporal brightness/colour of one representative point.
+    // The rolling-shutter offset must use the LED's actual on-canvas vertical
+    // position (with margin/gap), matching draw()'s strip timing — not the bare
+    // grid fraction, which ignores the margins and would mistime the readout.
     const rows = 4, cols = 4;
-    const ledCentreYFrac = (gy + 0.5) / rows;
+    const H = c.height, marginY = 55, gap = 22;
+    const cellH = (H - marginY * 2 - gap * (rows - 1)) / rows;
+    const ledCentreYFrac = (marginY + gy * (cellH + gap) + cellH / 2) / H;
     const rowOffset = rolling ? ledCentreYFrac * readout : 0;
     const tStart = frameStart + rowOffset;
 

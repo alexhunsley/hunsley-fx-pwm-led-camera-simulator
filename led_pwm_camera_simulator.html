@@ -826,8 +826,17 @@
     updateDerived();
   });
 
+  // A manual edit to shutter type or readout time means the settings no longer
+  // match the selected named camera, so reflect that in the preset dropdown.
+  // (Programmatic .value changes from the preset handlers don't fire events, so
+  // applying a preset does not trip this.)
   $("shutterType").addEventListener("change", () => {
+    $("cameraPreset").value = "custom";
     updateDerived();
+  });
+
+  $("readoutMs").addEventListener("input", () => {
+    $("cameraPreset").value = "custom";
   });
 
   $("duty").addEventListener("input", () => {

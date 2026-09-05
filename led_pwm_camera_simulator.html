@@ -277,6 +277,10 @@
           <option value="rainbow">Rainbow</option>
         </select>
       </label>
+      <div class="row2" style="margin-bottom:8px">
+        <button id="prevFrame">◀ Previous frame</button>
+        <button id="nextFrame">Next frame ▶</button>
+      </div>
       <div class="inline">
         <input id="pause" type="checkbox" />
         <span>Pause animation</span>
@@ -287,6 +291,10 @@
   <main class="viewer">
     <div class="screen">
       <canvas id="canvas" width="960" height="540"></canvas>
+    </div>
+
+    <div class="screen" style="aspect-ratio: 4 / 1; max-height:180px">
+      <canvas id="historyCanvas" width="960" height="220"></canvas>
     </div>
 
     <div class="hud">
@@ -302,6 +310,8 @@
       RGB is simulated per channel: mixed colours can show channel-specific flicker or colour shifts when one component has a low PWM duty.
       Rainbow mode is a stress palette with many dominant-channel + low-secondary-channel colours, specifically to reveal this behaviour.
       Global shutter uses one exposure start time for the whole image.
+      Playback walks through every virtual camera frame in order at a controlled presentation rate (capped at 30 displayed frames/s), so Safari cannot skip camera frames.
+      The history graph shows the mathematically recorded RGB brightness across recent camera frames.
     </div>
   </main>
 </div>
@@ -322,8 +332,8 @@
   const c = $("canvas");
   const ctx = c.getContext("2d");
 
-  let simTime = 0;
-  let lastReal = performance.now();
+  let virtualFrame = 0;
+  let lastPresentedAt = performance.now();
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
@@ -456,8 +466,9 @@
     ctx.fillStyle = "#090909";
     ctx.fillRect(0, 0, W, H);
 
-    // Camera-frame time: quantise simulation time to the virtual camera's frame cadence.
-    const frameIndex = Math.floor(simTime * fps);
+    // Exact virtual camera timing. Browser refresh only presents the latest
+    // computed camera frame; it does not determine camera phase.
+    const frameIndex = virtualFrame;
     const frameStart = frameIndex / fps;
 
     const marginX = 120, marginY = 55;
@@ -529,16 +540,152 @@
     );
   }
 
-  function animate(now) {
-    const dt = Math.min(0.1, (now - lastReal) / 1000);
-    lastReal = now;
 
-    if (!$("pause").checked) {
-      simTime += dt * parseFloat($("playbackSpeed").value);
+  const hc = $("historyCanvas");
+  const hctx = hc.getContext("2d");
+
+  function sampleLedForFrame(frameIndex, gx, gy) {
+    const fps = parseFloat($("fps").value);
+    const angle = parseFloat($("shutterAngle").value);
+    const exposure = (angle / 360) / fps;
+    const pwm = Math.max(1, parseFloat($("pwmHz").value));
+    const masterDuty = clamp(parseFloat($("duty").value) / 100, 0, 1);
+    const phaseCycles = (parseFloat($("phaseDeg").value) || 0) / 360;
+    const readout = Math.max(0, parseFloat($("readoutMs").value) / 1000);
+    const rolling = $("shutterType").value === "rolling";
+    const frameStart = frameIndex / fps;
+
+    // Sample the vertical centre of this LED. Since banding is shown in the main
+    // display, history focuses on temporal brightness/colour of one representative point.
+    const rows = 4, cols = 4;
+    const ledCentreYFrac = (gy + 0.5) / rows;
+    const rowOffset = rolling ? ledCentreYFrac * readout : 0;
+    const tStart = frameStart + rowOffset;
+
+    const [dr, dg, db] = ledChannelDuties($("colourMode").value, gx, gy, cols, rows, masterDuty);
+    return [
+      integratedBrightness(tStart, exposure, pwm, dr, phaseCycles),
+      integratedBrightness(tStart, exposure, pwm, dg, phaseCycles),
+      integratedBrightness(tStart, exposure, pwm, db, phaseCycles)
+    ];
+  }
+
+  function drawHistory() {
+    const W = hc.width, H = hc.height;
+    hctx.clearRect(0, 0, W, H);
+    hctx.fillStyle = "#090909";
+    hctx.fillRect(0, 0, W, H);
+
+    const count = 96;
+    const start = Math.max(0, virtualFrame - count + 1);
+    const end = start + count;
+    const gx = 0, gy = 0;
+
+    // Grid
+    hctx.strokeStyle = "rgba(255,255,255,0.10)";
+    hctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = 20 + (H - 45) * i / 4;
+      hctx.beginPath();
+      hctx.moveTo(42, y);
+      hctx.lineTo(W - 12, y);
+      hctx.stroke();
     }
 
-    draw();
+    const traces = [
+      { idx: 0, stroke: "rgb(255,90,90)", label: "R" },
+      { idx: 1, stroke: "rgb(90,255,90)", label: "G" },
+      { idx: 2, stroke: "rgb(100,140,255)", label: "B" }
+    ];
+
+    for (const tr of traces) {
+      hctx.strokeStyle = tr.stroke;
+      hctx.lineWidth = 2;
+      hctx.beginPath();
+      for (let i = 0; i < count; i++) {
+        const fi = start + i;
+        const rgb = sampleLedForFrame(fi, gx, gy);
+        const x = 42 + (W - 58) * i / (count - 1);
+        const y = 20 + (H - 45) * (1 - rgb[tr.idx]);
+        if (i === 0) hctx.moveTo(x, y);
+        else hctx.lineTo(x, y);
+      }
+      hctx.stroke();
+    }
+
+    hctx.font = "13px system-ui";
+    hctx.fillStyle = "rgba(255,255,255,0.8)";
+    hctx.fillText("Frame history: LED 1 RGB recorded brightness", 12, 15);
+    hctx.fillStyle = "rgb(255,90,90)"; hctx.fillText("R", 12, 42);
+    hctx.fillStyle = "rgb(90,255,90)"; hctx.fillText("G", 12, 60);
+    hctx.fillStyle = "rgb(100,140,255)"; hctx.fillText("B", 12, 78);
+
+    // Current frame marker
+    const currentIndex = virtualFrame - start;
+    if (currentIndex >= 0 && currentIndex < count) {
+      const x = 42 + (W - 58) * currentIndex / (count - 1);
+      hctx.strokeStyle = "rgba(255,255,255,0.45)";
+      hctx.lineWidth = 1;
+      hctx.beginPath();
+      hctx.moveTo(x, 20);
+      hctx.lineTo(x, H - 25);
+      hctx.stroke();
+    }
+  }
+
+  function animate(now) {
+    if (!pauseEl || !pauseEl.checked) {
+      const cameraFps = parseFloat($("fps").value);
+      const speed = parseFloat($("playbackSpeed").value);
+
+      // Present every simulated camera frame in sequence. We deliberately cap
+      // presentation at 30 frames/s so the monitor/browser never causes us to
+      // skip over virtual camera frames. Slow playback makes each camera frame
+      // persist proportionally longer.
+      const presentationFps = Math.min(30, cameraFps * speed);
+      const frameIntervalMs = 1000 / Math.max(0.01, presentationFps);
+
+      if (now - lastPresentedAt >= frameIntervalMs) {
+        virtualFrame += 1;
+        lastPresentedAt = now;
+        draw();
+        drawHistory();
+      }
+    }
+
     requestAnimationFrame(animate);
+  }
+
+  const pauseEl = $("pause");
+  const prevFrameEl = $("prevFrame");
+  const nextFrameEl = $("nextFrame");
+
+  if (pauseEl) {
+    pauseEl.addEventListener("change", () => {
+      lastPresentedAt = performance.now();
+      draw();
+      drawHistory();
+    });
+  }
+
+  if (prevFrameEl) {
+    prevFrameEl.addEventListener("click", () => {
+      if (pauseEl) pauseEl.checked = true;
+      virtualFrame = Math.max(0, virtualFrame - 1);
+      lastPresentedAt = performance.now();
+      draw();
+      drawHistory();
+    });
+  }
+
+  if (nextFrameEl) {
+    nextFrameEl.addEventListener("click", () => {
+      if (pauseEl) pauseEl.checked = true;
+      virtualFrame += 1;
+      lastPresentedAt = performance.now();
+      draw();
+      drawHistory();
+    });
   }
 
   $("cameraPreset").addEventListener("change", e => {
@@ -622,7 +769,8 @@
       $("colourMode").value = "rainbow";
     }
 
-    simTime = 0;
+    virtualFrame = 0;
+    lastPresentedAt = performance.now();
     updateDerived();
   });
 
@@ -635,6 +783,8 @@
   });
 
   updateDerived();
+  draw();
+  drawHistory();
   requestAnimationFrame(animate);
 })();
 </script>

@@ -254,10 +254,14 @@
         Sensor strips
         <input id="strips" type="number" min="16" max="360" step="1" value="120" />
       </label>
-      <div class="inline" style="margin-bottom:8px">
-        <input id="colourLeds" type="checkbox" />
-        <span>Colour LEDs (white / red / green / blue columns)</span>
-      </div>
+      <label>
+        LED colour mode
+        <select id="colourMode">
+          <option value="white" selected>White</option>
+          <option value="rgb">RGB columns</option>
+          <option value="rainbow">Rainbow</option>
+        </select>
+      </label>
       <div class="inline">
         <input id="pause" type="checkbox" />
         <span>Pause animation</span>
@@ -280,6 +284,7 @@
     <div class="note">
       Camera preset readout times are representative approximate values and vary by sensor mode.
       The LED grid is divided into horizontal sensor-time strips so rolling-shutter banding can be visualised.
+      RGB is simulated per channel: mixed colours can show channel-specific flicker or colour shifts when one component has a low PWM duty.
       Global shutter uses one exposure start time for the whole image.
     </div>
   </main>
@@ -359,6 +364,41 @@
     $("mPwmPeriod").textContent = `${(1000 / pwm).toFixed(4)} ms`;
   }
 
+  function hsvToRgb(h, s, v) {
+    h = ((h % 1) + 1) % 1;
+    const i = Math.floor(h * 6);
+    const f = h * 6 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    let r, g, b;
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      case 5: r = v; g = p; b = q; break;
+    }
+    return [r, g, b];
+  }
+
+  function ledChannelDuties(mode, gx, gy, cols, rows, masterDuty) {
+    let rgb;
+    if (mode === "rgb") {
+      if (gx === 0) rgb = [1, 1, 1];
+      else if (gx === 1) rgb = [1, 0, 0];
+      else if (gx === 2) rgb = [0, 1, 0];
+      else rgb = [0, 0, 1];
+    } else if (mode === "rainbow") {
+      const idx = gy * cols + gx;
+      rgb = hsvToRgb(idx / (cols * rows), 1, 1);
+    } else {
+      rgb = [1, 1, 1];
+    }
+    return rgb.map(x => clamp(x * masterDuty, 0, 1));
+  }
+
   function draw() {
     const fps = parseFloat($("fps").value);
     const angle = parseFloat($("shutterAngle").value);
@@ -395,7 +435,6 @@
       const sensorFrac = (s + 0.5) / strips;
       const rowOffset = rolling ? sensorFrac * readout : 0;
       const tStart = frameStart + rowOffset;
-      const b = integratedBrightness(tStart, exposure, pwm, duty, phaseCycles);
 
       ctx.save();
       ctx.beginPath();
@@ -413,26 +452,23 @@
           ctx.fillStyle = "rgb(28,28,28)";
           ctx.fill();
 
-          // Emissive disc. Gamma-ish mapping is only for monitor appearance.
-          const shown = Math.pow(b, 1 / 2.2);
-          const v = Math.round(10 + shown * 245);
-          const low = Math.round(4 + shown * 12);
-          const colourMode = $("colourLeds").checked;
+          // Each LED has independent RGB PWM channels. A mixed colour can therefore
+          // show channel-specific flicker/banding when one component has a low duty.
+          const mode = $("colourMode").value;
+          const [dr, dg, db] = ledChannelDuties(mode, gx, gy, cols, rows, duty);
 
-          let fill;
-          if (!colourMode || gx === 0) {
-            fill = `rgb(${v},${v},${v})`;
-          } else if (gx === 1) {
-            fill = `rgb(${v},${low},${low})`;
-          } else if (gx === 2) {
-            fill = `rgb(${low},${v},${low})`;
-          } else {
-            fill = `rgb(${low},${low},${v})`;
-          }
+          const br = integratedBrightness(tStart, exposure, pwm, dr, phaseCycles);
+          const bg = integratedBrightness(tStart, exposure, pwm, dg, phaseCycles);
+          const bb = integratedBrightness(tStart, exposure, pwm, db, phaseCycles);
+
+          // Gamma-ish mapping is only to make the monitor representation look sensible.
+          const vr = Math.round(255 * Math.pow(br, 1 / 2.2));
+          const vg = Math.round(255 * Math.pow(bg, 1 / 2.2));
+          const vb = Math.round(255 * Math.pow(bb, 1 / 2.2));
 
           ctx.beginPath();
           ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-          ctx.fillStyle = fill;
+          ctx.fillStyle = `rgb(${vr},${vg},${vb})`;
           ctx.fill();
         }
       }
@@ -447,7 +483,7 @@
     ctx.font = "14px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.fillText(
-      `${fps} fps · ${angle}° · ${pwm.toFixed(0)} Hz PWM · ${(duty*100).toFixed(1)}% duty · ${rolling ? readout*1000 + " ms rolling readout" : "global shutter"}`,
+      `${fps} fps · ${angle}° · ${pwm.toFixed(0)} Hz PWM · ${(duty*100).toFixed(1)}% master duty · ${$("colourMode").value} · ${rolling ? readout*1000 + " ms rolling readout" : "global shutter"}`,
       20, H - 18
     );
   }
@@ -495,7 +531,7 @@
 
   [
     "fps", "shutterAngle", "pwmHz", "readoutMs",
-    "shutterType", "duty", "dutyNum", "phaseDeg", "strips", "colourLeds"
+    "shutterType", "duty", "dutyNum", "phaseDeg", "strips", "colourMode"
   ].forEach(id => {
     $(id).addEventListener("input", updateDerived);
     $(id).addEventListener("change", updateDerived);

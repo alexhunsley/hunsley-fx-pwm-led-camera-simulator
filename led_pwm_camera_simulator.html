@@ -308,6 +308,10 @@
         <input id="pause" type="checkbox" />
         <span>Pause animation</span>
       </div>
+      <div class="inline" style="margin-top:8px">
+        <input id="headroom" type="checkbox" />
+        <span>Simulate headroom (hard clipping effect)</span>
+      </div>
     </div>
   </section>
 
@@ -391,9 +395,16 @@
     return (primitiveCycles(x1) - primitiveCycles(x0)) * period;
   }
 
-  function integratedBrightness(tStart, exposure, freq, duty, phaseCycles) {
+  // Sensor highlight headroom. A real practical LED is usually far brighter than
+  // "just correctly exposed at full-on", so any glimpse of an ON pulse tends to
+  // saturate the sensor. Applying this gain in the linear domain before the 0..1
+  // clamp makes flicker/rolling bands clip hard (near-white, hard-edged) as they
+  // do on set, instead of rendering as soft grey gradients. gain=1 disables it.
+  const HEADROOM_GAIN = 4; // ~2 stops of highlight headroom
+
+  function integratedBrightness(tStart, exposure, freq, duty, phaseCycles, gain = 1) {
     if (exposure <= 0) return 0;
-    return clamp(pwmIntegral(tStart, tStart + exposure, freq, duty, phaseCycles) / exposure, 0, 1);
+    return clamp(gain * pwmIntegral(tStart, tStart + exposure, freq, duty, phaseCycles) / exposure, 0, 1);
   }
 
   function aliasFreq(pwm, fps) {
@@ -498,6 +509,7 @@
     const readout = Math.max(0, parseFloat($("readoutMs").value) / 1000);
     const rolling = $("shutterType").value === "rolling";
     const strips = Math.max(16, Math.min(360, parseInt($("strips").value, 10) || 120));
+    const gain = $("headroom").checked ? HEADROOM_GAIN : 1;
 
     const W = c.width, H = c.height;
     ctx.clearRect(0, 0, W, H);
@@ -547,9 +559,9 @@
           const mode = $("colourMode").value;
           const [dr, dg, db] = ledChannelDuties(mode, gx, gy, cols, rows, duty);
 
-          const br = integratedBrightness(tStart, exposure, pwm, dr, phaseCycles);
-          const bg = integratedBrightness(tStart, exposure, pwm, dg, phaseCycles);
-          const bb = integratedBrightness(tStart, exposure, pwm, db, phaseCycles);
+          const br = integratedBrightness(tStart, exposure, pwm, dr, phaseCycles, gain);
+          const bg = integratedBrightness(tStart, exposure, pwm, dg, phaseCycles, gain);
+          const bb = integratedBrightness(tStart, exposure, pwm, db, phaseCycles, gain);
 
           // Gamma-ish mapping is only to make the monitor representation look sensible.
           const vr = Math.round(255 * Math.pow(br, 1 / 2.2));
@@ -613,11 +625,12 @@
     const rowOffset = rolling ? ledCentreYFrac * readout : 0;
     const tStart = frameStart + rowOffset;
 
+    const gain = $("headroom").checked ? HEADROOM_GAIN : 1;
     const [dr, dg, db] = ledChannelDuties($("colourMode").value, gx, gy, cols, rows, masterDuty);
     return [
-      integratedBrightness(tStart, exposure, pwm, dr, phaseCycles),
-      integratedBrightness(tStart, exposure, pwm, dg, phaseCycles),
-      integratedBrightness(tStart, exposure, pwm, db, phaseCycles)
+      integratedBrightness(tStart, exposure, pwm, dr, phaseCycles, gain),
+      integratedBrightness(tStart, exposure, pwm, dg, phaseCycles, gain),
+      integratedBrightness(tStart, exposure, pwm, db, phaseCycles, gain)
     ];
   }
 
@@ -773,6 +786,11 @@
       drawHistory();
     });
   }
+
+  $("headroom").addEventListener("change", () => {
+    draw();
+    drawHistory();
+  });
 
   if (prevFrameEl) {
     prevFrameEl.addEventListener("click", () => {

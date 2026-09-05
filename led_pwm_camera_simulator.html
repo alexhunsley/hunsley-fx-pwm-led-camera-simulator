@@ -78,6 +78,10 @@
   input[type="range"] {
     padding: 0;
   }
+  input:disabled, select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
   .row2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -250,6 +254,10 @@
         Sensor strips
         <input id="strips" type="number" min="16" max="360" step="1" value="120" />
       </label>
+      <div class="inline" style="margin-bottom:8px">
+        <input id="colourLeds" type="checkbox" />
+        <span>Colour LEDs (white / red / green / blue columns)</span>
+      </div>
       <div class="inline">
         <input id="pause" type="checkbox" />
         <span>Pause animation</span>
@@ -330,7 +338,13 @@
     return raw;
   }
 
+  function syncReadoutEnabled() {
+    const isGlobal = $("shutterType").value === "global";
+    $("readoutMs").disabled = isGlobal;
+  }
+
   function updateDerived() {
+    syncReadoutEnabled();
     const fps = parseFloat($("fps").value);
     const angle = parseFloat($("shutterAngle").value);
     const exposure = (angle / 360) / fps;
@@ -402,10 +416,23 @@
           // Emissive disc. Gamma-ish mapping is only for monitor appearance.
           const shown = Math.pow(b, 1 / 2.2);
           const v = Math.round(10 + shown * 245);
+          const low = Math.round(4 + shown * 12);
+          const colourMode = $("colourLeds").checked;
+
+          let fill;
+          if (!colourMode || gx === 0) {
+            fill = `rgb(${v},${v},${v})`;
+          } else if (gx === 1) {
+            fill = `rgb(${v},${low},${low})`;
+          } else if (gx === 2) {
+            fill = `rgb(${low},${v},${low})`;
+          } else {
+            fill = `rgb(${low},${low},${v})`;
+          }
 
           ctx.beginPath();
           ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-          ctx.fillStyle = `rgb(${v},${v},${v})`;
+          ctx.fillStyle = fill;
           ctx.fill();
         }
       }
@@ -441,12 +468,13 @@
     const p = presets[e.target.value];
     if (!p) return;
     $("shutterType").value = p.type;
-    $("readoutMs").value = p.readout;
+    if (p.type !== "global") {
+      $("readoutMs").value = p.readout;
+    }
     updateDerived();
   });
 
   $("shutterType").addEventListener("change", () => {
-    if ($("shutterType").value === "global") $("readoutMs").value = 0;
     updateDerived();
   });
 
@@ -467,7 +495,7 @@
 
   [
     "fps", "shutterAngle", "pwmHz", "readoutMs",
-    "shutterType", "duty", "dutyNum", "phaseDeg", "strips"
+    "shutterType", "duty", "dutyNum", "phaseDeg", "strips", "colourLeds"
   ].forEach(id => {
     $(id).addEventListener("input", updateDerived);
     $(id).addEventListener("change", updateDerived);

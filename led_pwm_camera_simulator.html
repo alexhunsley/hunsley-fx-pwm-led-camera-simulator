@@ -129,6 +129,18 @@
     font-variant-numeric: tabular-nums;
     font-size: 15px;
   }
+  .metric.warn {
+    border-color: #d9534f;
+    background: #2a1414;
+  }
+  .metric .warn-msg {
+    display: none;
+    margin-top: 5px;
+    color: #ff8a80;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+  .metric.warn .warn-msg { display: block; }
   .note {
     color: var(--muted);
     font-size: 12px;
@@ -310,7 +322,7 @@
 
     <div class="hud">
       <div class="metric"><div class="k">PWM cycles / exposure</div><div class="v" id="mExposure">—</div></div>
-      <div class="metric"><div class="k">PWM cycles / sensor readout</div><div class="v" id="mReadout">—</div></div>
+      <div class="metric" id="mReadoutMetric"><div class="k">PWM cycles / sensor readout</div><div class="v" id="mReadout">—</div><div class="warn-msg">Readout exceeds frame period (1/fps) — not physically achievable at this fps; real cameras switch to a faster readout mode.</div></div>
       <div class="metric"><div class="k">Temporal alias / beat</div><div class="v" id="mAlias">—</div></div>
       <div class="metric"><div class="k">PWM period</div><div class="v" id="mPwmPeriod">—</div></div>
     </div>
@@ -410,6 +422,11 @@
     $("mReadout").textContent = type === "global" ? "0 (global)" : (pwm * readout).toFixed(3);
     $("mAlias").textContent = `${aliasFreq(pwm, fps).toFixed(3)} Hz`;
     $("mPwmPeriod").textContent = `${(1000 / pwm).toFixed(4)} ms`;
+
+    // Flag a physically impossible combination: a rolling readout longer than
+    // the frame period would make one sensor row belong to two frames at once.
+    const readoutOverrun = type !== "global" && readout > 1 / fps;
+    $("mReadoutMetric").classList.toggle("warn", readoutOverrun);
   }
 
   function hsvToRgb(h, s, v) {

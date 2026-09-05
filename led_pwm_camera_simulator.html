@@ -262,6 +262,7 @@
           <option value="badHighFps">Bad: 400 Hz / 120 fps / 5% duty</option>
           <option value="bad240">Very bad: 400 Hz / 240 fps</option>
           <option value="badColour">Bad colour mix: low-duty RGB component</option>
+          <option value="slowThrob">Slow throb: PWM near-synced to 24 fps (0.5 Hz beat)</option>
           <option value="good20k">Good comparison: 20 kHz / 24 fps</option>
         </select>
       </label>
@@ -900,6 +901,22 @@
       $("dutyNum").value = 20;
       $("playbackSpeed").value = "0.25";
       $("colourMode").value = "rainbow";
+    } else if (p === "slowThrob") {
+      // PWM sits just off an integer multiple of the frame rate (408.5 Hz vs
+      // 17x24 = 408 Hz), so the frame-sampled phase drifts slowly and the whole
+      // image throbs at the 0.5 Hz beat (one pulse every 2 s). A short shutter
+      // (~1.4 PWM cycles per exposure) makes each frame's average phase-sensitive,
+      // giving a large brightness swing; global shutter isolates the throb with
+      // no rolling banding.
+      $("cameraPreset").value = "komodo";
+      $("shutterType").value = "global";
+      $("fps").value = "24";
+      $("shutterAngle").value = 30;
+      $("pwmHz").value = 408.5;
+      $("duty").value = 50;
+      $("dutyNum").value = 50;
+      $("playbackSpeed").value = "1";
+      $("colourMode").value = "white";
     } else if (p === "good20k") {
       $("fps").value = "24";
       $("shutterAngle").value = 180;

@@ -235,6 +235,9 @@
         <button data-pwm="2000">2 kHz</button>
         <button data-pwm="20000">20 kHz</button>
       </div>
+      <div style="margin-top:8px">
+        <button id="stressTest">Load obvious flicker test</button>
+      </div>
     </div>
 
     <div class="group">
@@ -324,16 +327,17 @@
 
     const period = 1 / freq;
 
-    function cumulativeOn(t) {
-      // Convert time to cycles with phase, then integrate complete cycles + partial cycle.
-      const x = t / period + phaseCycles;
+    function primitiveCycles(x) {
       const whole = Math.floor(x);
-      let frac = x - whole;
-      if (frac < 0) frac += 1;
-      return (whole * duty + Math.min(frac, duty)) * period;
+      const frac = x - whole;
+      return whole * duty + Math.min(frac, duty);
     }
 
-    return cumulativeOn(t1) - cumulativeOn(t0);
+    // Integrate in PWM-cycle coordinates. Subtracting the two primitives makes
+    // the arbitrary phase origin cancel correctly.
+    const x0 = t0 / period + phaseCycles;
+    const x1 = t1 / period + phaseCycles;
+    return (primitiveCycles(x1) - primitiveCycles(x0)) * period;
   }
 
   function integratedBrightness(tStart, exposure, freq, duty, phaseCycles) {
@@ -556,6 +560,22 @@
       $("pwmHz").value = btn.dataset.pwm;
       updateDerived();
     });
+  });
+
+  $("stressTest").addEventListener("click", () => {
+    $("cameraPreset").value = "alexa35";
+    $("shutterType").value = "rolling";
+    $("readoutMs").value = 7.6;
+    $("fps").value = "120";
+    $("shutterAngle").value = 90;
+    $("pwmHz").value = 400;
+    $("duty").value = 5;
+    $("dutyNum").value = 5;
+    $("phaseDeg").value = 0;
+    $("playbackSpeed").value = "0.25";
+    $("colourMode").value = "rainbow";
+    simTime = 0;
+    updateDerived();
   });
 
   [

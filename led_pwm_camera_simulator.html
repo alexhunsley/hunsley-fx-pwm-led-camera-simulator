@@ -305,9 +305,9 @@
       <label>
         LED colour mode
         <select id="colourMode">
-          <option value="white" selected>White</option>
+          <option value="white">White</option>
           <option value="rgb">RGB columns</option>
-          <option value="rainbow">Rainbow</option>
+          <option value="rainbow" selected>Rainbow</option>
         </select>
       </label>
       <div class="row2" style="margin-bottom:8px">
@@ -343,7 +343,7 @@
 
     <div class="note">
       <strong>Disclaimer:</strong> This tool cannot be used to predict with any certainty what will be seen in a real-life situation; it demonstrates possible effects. No tool can replace camera tests under real shooting conditions.
-      Camera preset readout times are representative approximate values and vary by sensor mode.
+      Camera preset readout times are representative approximate values and vary by sensor mode (data from CineD.com).
       The LED grid is divided into horizontal sensor-time strips so rolling-shutter banding can be visualised.
       RGB is simulated per channel: mixed colours can show channel-specific flicker or colour shifts when one component has a low PWM duty.
       Rainbow mode is a stress palette with many dominant-channel + low-secondary-channel colours, specifically to reveal this behaviour.
@@ -727,7 +727,7 @@
     // or three target levels coincide.
     hctx.save();
     hctx.textBaseline = "middle";
-    const labelX = [12, 24, 36]; // R, G, B
+    const labelX = [10, 22, 34]; // R, G, B (B may lightly touch the plot's left edge)
     for (const tr of traces) {
       const y = clamp(plotY(duties[tr.idx]), 10, H - 10);
       hctx.fillStyle = tr.stroke;
@@ -914,7 +914,6 @@
       $("duty").value = 10;
       $("dutyNum").value = 10;
       $("playbackSpeed").value = "0.5";
-      $("colourMode").value = "white";
     } else if (p === "badHighFps") {
       $("fps").value = "120";
       $("shutterAngle").value = 90;
@@ -922,7 +921,6 @@
       $("duty").value = 5;
       $("dutyNum").value = 5;
       $("playbackSpeed").value = "0.25";
-      $("colourMode").value = "white";
     } else if (p === "bad240") {
       // 240 fps is only reached in fast windowed/cropped sensor modes, whose
       // readout is far shorter than a full-frame 7.6 ms — using 7.6 ms here would
@@ -936,7 +934,6 @@
       $("duty").value = 10;
       $("dutyNum").value = 10;
       $("playbackSpeed").value = "0.125";
-      $("colourMode").value = "white";
     } else if (p === "badColour") {
       $("fps").value = "120";
       $("shutterAngle").value = 90;
@@ -944,7 +941,6 @@
       $("duty").value = 20;
       $("dutyNum").value = 20;
       $("playbackSpeed").value = "0.25";
-      $("colourMode").value = "rainbow";
     } else if (p === "slowThrob") {
       // PWM sits just off an integer multiple of the frame rate (408.5 Hz vs
       // 17x24 = 408 Hz), so the frame-sampled phase drifts slowly and the whole
@@ -960,7 +956,6 @@
       $("duty").value = 50;
       $("dutyNum").value = 50;
       $("playbackSpeed").value = "1";
-      $("colourMode").value = "white";
     } else if (p === "good20k") {
       $("fps").value = "24";
       $("shutterAngle").value = 180;

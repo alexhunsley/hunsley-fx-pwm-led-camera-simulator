@@ -722,9 +722,18 @@
     const ledNumber = gy * 4 + gx + 1;
     const cmd = duties.map(v => Math.round(v * 100));
     hctx.fillText(`Frame history: LED ${ledNumber} — RGB command ${cmd[0]}% / ${cmd[1]}% / ${cmd[2]}%`, 12, 15);
-    hctx.fillStyle = "rgb(255,90,90)"; hctx.fillText("R", 12, 42);
-    hctx.fillStyle = "rgb(90,255,90)"; hctx.fillText("G", 12, 60);
-    hctx.fillStyle = "rgb(100,140,255)"; hctx.fillText("B", 12, 78);
+    // R/G/B labels sit to the left of the plot, vertically centred on each
+    // channel's target line, and staggered in X so they don't overlap when two
+    // or three target levels coincide.
+    hctx.save();
+    hctx.textBaseline = "middle";
+    const labelX = [12, 24, 36]; // R, G, B
+    for (const tr of traces) {
+      const y = clamp(plotY(duties[tr.idx]), 10, H - 10);
+      hctx.fillStyle = tr.stroke;
+      hctx.fillText(tr.label, labelX[tr.idx], y);
+    }
+    hctx.restore();
 
     // Current frame marker
     const currentIndex = virtualFrame - start;

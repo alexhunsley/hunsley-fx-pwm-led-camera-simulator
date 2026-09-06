@@ -70,6 +70,49 @@
     grid-template-columns: 1fr;
     gap: 4px;
   }
+  .field-with-btn {
+    position: relative;
+    display: flex;
+    gap: 4px;
+  }
+  .icon-btn {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    line-height: 1;
+  }
+  .preset-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 210px;
+    background: #1b1b1b;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .preset-menu .head {
+    color: var(--muted);
+    font-size: 11px;
+    padding: 6px 8px 4px;
+  }
+  .preset-menu button {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 7px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .preset-menu button:hover { background: #2e2e2e; }
+  .preset-menu .empty {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 7px 8px;
+  }
   input, select, button {
     width: 100%;
     background: #121212;
@@ -260,7 +303,11 @@
       </label>
       <label>
         Shutter angle (°)
-        <input id="shutterAngle" type="number" min="1" max="360" step="1" value="180" />
+        <div class="field-with-btn">
+          <button type="button" id="shutterPresetBtn" class="icon-btn" title="Flicker-free shutter angles (50 Hz mains)" aria-label="Flicker-free shutter-angle presets">🔍</button>
+          <input id="shutterAngle" type="number" min="1" max="360" step="0.1" value="180" />
+          <div id="shutterPresetMenu" class="preset-menu" hidden></div>
+        </div>
       </label>
       <label>
         Exposure time
@@ -905,6 +952,70 @@
   $("headroom").addEventListener("change", () => {
     draw();
     drawHistory();
+  });
+
+  // Flicker-free shutter-angle presets for 50 Hz mains (light flickers at 100 Hz).
+  // Exposure must be a whole number of flicker periods; only 1x (1/50 s) and 1/2x
+  // (1/100 s) of a mains cycle land on one, giving angle = 360*fps/(50*N), N=1,2.
+  const FLICKER_MAINS_HZ = 50;
+
+  function shutterAnglePresets(fps) {
+    const out = [];
+    for (let n = 1; n <= 2; n++) {
+      const angle = 360 * fps / (FLICKER_MAINS_HZ * n);
+      if (angle <= 360.0001) out.push({ angle: Math.round(angle * 10) / 10, n });
+    }
+    return out;
+  }
+
+  function closeShutterMenu() { $("shutterPresetMenu").hidden = true; }
+
+  function openShutterMenu() {
+    const menu = $("shutterPresetMenu");
+    const fps = parseFloat($("fps").value);
+    const presetsList = shutterAnglePresets(fps);
+    menu.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "head";
+    head.textContent = `Flicker-free · ${FLICKER_MAINS_HZ} Hz mains`;
+    menu.appendChild(head);
+
+    if (presetsList.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = `No angle ≤360° at ${fps} fps`;
+      menu.appendChild(empty);
+    } else {
+      for (const p of presetsList) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = `${p.angle}°  (${fps} fps / ${p.n})`;
+        b.addEventListener("click", () => {
+          $("shutterAngle").value = p.angle;
+          closeShutterMenu();
+          updateDerived();
+          draw();
+          drawHistory();
+        });
+        menu.appendChild(b);
+      }
+    }
+    menu.hidden = false;
+  }
+
+  $("shutterPresetBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if ($("shutterPresetMenu").hidden) openShutterMenu();
+    else closeShutterMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!$("shutterPresetMenu").hidden &&
+        !$("shutterPresetMenu").contains(e.target) &&
+        e.target !== $("shutterPresetBtn")) {
+      closeShutterMenu();
+    }
   });
 
   if (prevFrameEl) {

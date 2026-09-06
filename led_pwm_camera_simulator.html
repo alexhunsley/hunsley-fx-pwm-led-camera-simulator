@@ -151,6 +151,11 @@
     max-width: 780px;
     line-height: 1.45;
   }
+  .note a {
+    color: #7db4ff;
+    text-decoration: none;
+  }
+  .note a:hover { text-decoration: underline; }
   .inline {
     display: flex;
     align-items: center;
@@ -347,6 +352,10 @@
       “Real time” advances according to elapsed time at the selected camera FPS, so the browser/display may necessarily skip frames at high camera rates.
       Click any LED to select it for the history graph; the selected LED is outlined and the graph shows its commanded RGB percentages.
       The history graph shows the mathematically recorded RGB brightness across recent camera frames.
+      Faint dashed lines mark each channel's commanded (target) level, so you can see how far the recorded brightness dips below the ideal.
+    </div>
+    <div class="note">
+      <a href="https://hunsley.io/jams" target="_blank" rel="noopener">hunsley.io/jams</a>
     </div>
   </main>
 </div>
@@ -406,6 +415,11 @@
   // clamp makes flicker/rolling bands clip hard (near-white, hard-edged) as they
   // do on set, instead of rendering as soft grey gradients. gain=1 disables it.
   const HEADROOM_GAIN = 4; // ~2 stops of highlight headroom
+
+  // When true, the history graph draws faint dashed horizontal lines at each
+  // channel's commanded (target) level, so you can see how far the recorded
+  // brightness dips below the ideal the LED was asked to emit.
+  const SHOW_TARGET_LEVELS = true;
 
   function integratedBrightness(tStart, exposure, freq, duty, phaseCycles, gain = 1) {
     if (exposure <= 0) return 0;
@@ -650,6 +664,11 @@
     const end = start + count;
     const gx = selectedLed.gx, gy = selectedLed.gy;
 
+    const masterDuty = clamp(parseFloat($("duty").value) / 100, 0, 1);
+    const duties = ledChannelDuties($("colourMode").value, gx, gy, 4, 4, masterDuty);
+
+    const plotY = v => 20 + (H - 45) * (1 - v);
+
     // Grid
     hctx.strokeStyle = "rgba(255,255,255,0.10)";
     hctx.lineWidth = 1;
@@ -662,10 +681,26 @@
     }
 
     const traces = [
-      { idx: 0, stroke: "rgb(255,90,90)", label: "R" },
-      { idx: 1, stroke: "rgb(90,255,90)", label: "G" },
-      { idx: 2, stroke: "rgb(100,140,255)", label: "B" }
+      { idx: 0, stroke: "rgb(255,90,90)",   faint: "rgba(255,90,90,0.40)",  label: "R" },
+      { idx: 1, stroke: "rgb(90,255,90)",   faint: "rgba(90,255,90,0.40)",  label: "G" },
+      { idx: 2, stroke: "rgb(100,140,255)", faint: "rgba(100,140,255,0.40)", label: "B" }
     ];
+
+    // Faint dashed line at each channel's commanded (target) level.
+    if (SHOW_TARGET_LEVELS) {
+      hctx.save();
+      hctx.setLineDash([5, 4]);
+      hctx.lineWidth = 1;
+      for (const tr of traces) {
+        const y = plotY(duties[tr.idx]);
+        hctx.strokeStyle = tr.faint;
+        hctx.beginPath();
+        hctx.moveTo(42, y);
+        hctx.lineTo(W - 12, y);
+        hctx.stroke();
+      }
+      hctx.restore();
+    }
 
     for (const tr of traces) {
       hctx.strokeStyle = tr.stroke;
@@ -685,8 +720,6 @@
     hctx.font = "13px system-ui";
     hctx.fillStyle = "rgba(255,255,255,0.8)";
     const ledNumber = gy * 4 + gx + 1;
-    const masterDuty = clamp(parseFloat($("duty").value) / 100, 0, 1);
-    const duties = ledChannelDuties($("colourMode").value, gx, gy, 4, 4, masterDuty);
     const cmd = duties.map(v => Math.round(v * 100));
     hctx.fillText(`Frame history: LED ${ledNumber} — RGB command ${cmd[0]}% / ${cmd[1]}% / ${cmd[2]}%`, 12, 15);
     hctx.fillStyle = "rgb(255,90,90)"; hctx.fillText("R", 12, 42);

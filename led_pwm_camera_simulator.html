@@ -288,18 +288,11 @@
       <h2>Shooting settings</h2>
       <label>
         FPS
-        <select id="fps">
-          <option>23.976</option>
-          <option selected>24</option>
-          <option>25</option>
-          <option>29.97</option>
-          <option>30</option>
-          <option>50</option>
-          <option>59.94</option>
-          <option>60</option>
-          <option>120</option>
-          <option>240</option>
-        </select>
+        <div class="field-with-btn">
+          <button type="button" id="fpsPresetBtn" class="icon-btn" title="Common frame rates" aria-label="Frame-rate presets">🔍</button>
+          <input id="fps" type="number" min="1" step="0.001" value="24" />
+          <div id="fpsPresetMenu" class="preset-menu" hidden></div>
+        </div>
       </label>
       <label>
         Shutter angle (°)
@@ -1006,8 +999,46 @@
 
   $("shutterPresetBtn").addEventListener("click", (e) => {
     e.stopPropagation();
-    if ($("shutterPresetMenu").hidden) openShutterMenu();
+    const open = $("shutterPresetMenu").hidden;
+    closeFpsMenu();
+    if (open) openShutterMenu();
     else closeShutterMenu();
+  });
+
+  // Common frame-rate presets (the field itself accepts any free-entry value).
+  const FPS_PRESETS = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60, 120, 240];
+
+  function closeFpsMenu() { $("fpsPresetMenu").hidden = true; }
+
+  function openFpsMenu() {
+    const menu = $("fpsPresetMenu");
+    menu.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "head";
+    head.textContent = "Common frame rates";
+    menu.appendChild(head);
+    for (const fps of FPS_PRESETS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `${fps} fps`;
+      b.addEventListener("click", () => {
+        $("fps").value = fps;
+        closeFpsMenu();
+        updateDerived();
+        draw();
+        drawHistory();
+      });
+      menu.appendChild(b);
+    }
+    menu.hidden = false;
+  }
+
+  $("fpsPresetBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = $("fpsPresetMenu").hidden;
+    closeShutterMenu();
+    if (open) openFpsMenu();
+    else closeFpsMenu();
   });
 
   document.addEventListener("click", (e) => {
@@ -1015,6 +1046,11 @@
         !$("shutterPresetMenu").contains(e.target) &&
         e.target !== $("shutterPresetBtn")) {
       closeShutterMenu();
+    }
+    if (!$("fpsPresetMenu").hidden &&
+        !$("fpsPresetMenu").contains(e.target) &&
+        e.target !== $("fpsPresetBtn")) {
+      closeFpsMenu();
     }
   });
 

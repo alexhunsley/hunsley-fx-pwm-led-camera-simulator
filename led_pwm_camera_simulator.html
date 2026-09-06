@@ -145,6 +145,38 @@
     line-height: 1.3;
   }
   .metric.warn .warn-msg { display: block; }
+  .banner {
+    width: min(780px, 100%);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-left: 5px solid #3ea06a;
+    border-radius: 10px;
+    background: #14241a;
+  }
+  .banner.warn {
+    border-left-color: #d9534f;
+    background: #2a1414;
+  }
+  .banner .k {
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .banner .v {
+    font-size: 22px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .banner .hint {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .banner.warn .hint { color: #ff8a80; }
   .note {
     color: var(--muted);
     font-size: 12px;
@@ -331,6 +363,12 @@
       <canvas id="canvas" width="960" height="540"></canvas>
     </div>
 
+    <div class="banner" id="rmfrBanner">
+      <span class="k">Recommended max frame rate</span>
+      <span class="v" id="rmfrValue">—</span>
+      <span class="hint" id="rmfrHint"></span>
+    </div>
+
     <div class="screen" style="aspect-ratio: 4 / 1; max-height:180px">
       <canvas id="historyCanvas" width="960" height="220"></canvas>
     </div>
@@ -422,6 +460,11 @@
   // brightness dips below the ideal the LED was asked to emit.
   const SHOW_TARGET_LEVELS = true;
 
+  // A clean recording wants each exposure to span at least this many PWM cycles,
+  // so the integral averages out to the commanded duty. The "recommended max
+  // frame rate" is the fps at which the current exposure holds exactly this many.
+  const MIN_CYCLES_PER_EXPOSURE = 15;
+
   function integratedBrightness(tStart, exposure, freq, duty, phaseCycles, gain = 1) {
     if (exposure <= 0) return 0;
     return clamp(gain * pwmIntegral(tStart, tStart + exposure, freq, duty, phaseCycles) / exposure, 0, 1);
@@ -458,6 +501,16 @@
     // the frame period would make one sensor row belong to two frames at once.
     const readoutOverrun = type !== "global" && readout > 1 / fps;
     $("mReadoutMetric").classList.toggle("warn", readoutOverrun);
+
+    // Recommended max frame rate: the fps at which one exposure (accounting for
+    // shutter angle) still spans MIN_CYCLES_PER_EXPOSURE PWM cycles.
+    const rmfr = pwm * (angle / 360) / MIN_CYCLES_PER_EXPOSURE;
+    $("rmfrValue").textContent = `${rmfr.toFixed(1)} fps`;
+    const over = fps > rmfr;
+    $("rmfrBanner").classList.toggle("warn", over);
+    $("rmfrHint").textContent = over
+      ? `current ${fps} fps exceeds this — only ${(pwm * exposure).toFixed(1)} PWM cycles per exposure (want ≥ ${MIN_CYCLES_PER_EXPOSURE})`
+      : `at ${angle}° / ${pwm.toFixed(0)} Hz, for ≥ ${MIN_CYCLES_PER_EXPOSURE} PWM cycles per exposure`;
   }
 
   function hsvToRgb(h, s, v) {

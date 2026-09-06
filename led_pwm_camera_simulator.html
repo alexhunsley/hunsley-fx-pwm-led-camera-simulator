@@ -308,6 +308,7 @@
           <option value="white">White</option>
           <option value="rgb">RGB columns</option>
           <option value="rainbow" selected>Rainbow</option>
+          <option value="wash">Wash (full field)</option>
         </select>
       </label>
       <div class="row2" style="margin-bottom:8px">
@@ -549,6 +550,9 @@
     const cellH = (gridH - gap * (rows - 1)) / rows;
     const radius = Math.min(cellW, cellH) * 0.27;
 
+    const mode = $("colourMode").value;
+    const wash = mode === "wash";
+
     // Render each horizontal sensor-time strip independently.
     for (let s = 0; s < strips; s++) {
       const y0 = (s / strips) * H;
@@ -556,6 +560,18 @@
       const sensorFrac = (s + 0.5) / strips;
       const rowOffset = rolling ? sensorFrac * readout : 0;
       const tStart = frameStart + rowOffset;
+
+      // Wash mode: no LED grid or selector — flood the whole strip with a grey
+      // at the recorded (PWM-integrated) brightness, so flashing/pulsing and
+      // vertical rolling banding fill the entire field. Linear mapping so the
+      // commanded duty reads directly as grey (e.g. 50% -> 128/255).
+      if (wash) {
+        const b = integratedBrightness(tStart, exposure, pwm, duty, phaseCycles, gain);
+        const v = Math.round(255 * b);
+        ctx.fillStyle = `rgb(${v},${v},${v})`;
+        ctx.fillRect(0, y0, W, Math.ceil(y1 - y0) + 1);
+        continue;
+      }
 
       ctx.save();
       ctx.beginPath();
@@ -575,7 +591,6 @@
 
           // Each LED has independent RGB PWM channels. A mixed colour can therefore
           // show channel-specific flicker/banding when one component has a low duty.
-          const mode = $("colourMode").value;
           const [dr, dg, db] = ledChannelDuties(mode, gx, gy, cols, rows, duty);
 
           const br = integratedBrightness(tStart, exposure, pwm, dr, phaseCycles, gain);

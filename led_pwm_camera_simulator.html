@@ -727,7 +727,7 @@
     // or three target levels coincide.
     hctx.save();
     hctx.textBaseline = "middle";
-    const labelX = [10, 22, 34]; // R, G, B (B may lightly touch the plot's left edge)
+    const labelX = [4, 16, 28]; // R, G, B — kept clear of the plot's left edge (x=42)
     for (const tr of traces) {
       const y = clamp(plotY(duties[tr.idx]), 10, H - 10);
       hctx.fillStyle = tr.stroke;

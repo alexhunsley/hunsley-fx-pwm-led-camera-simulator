@@ -786,7 +786,9 @@
     // Grid labels / frame info.
     ctx.font = "20px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(`Virtual camera frame ${frameIndex}  (${formatTimecode(frameIndex, fps)})`, 20, 30);
+    ctx.fillText(`Virtual camera frame ${frameIndex}`, 20, 30);
+    // Timecode drawn at a fixed X so it doesn't jiggle as the frame number grows.
+    ctx.fillText(`(${formatTimecode(frameIndex, fps)})`, 320, 30);
 
     ctx.font = "14px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.55)";

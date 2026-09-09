@@ -527,6 +527,17 @@
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
+  // SMPTE-style non-drop timecode HH:MM:SS:FF. The frame field (FF) is the
+  // sub-second part, counting 0..(timebase-1) where timebase = rounded fps
+  // (so 23.976 -> 24, 29.97 -> 30 frames per counted second).
+  function formatTimecode(frameIndex, fps) {
+    const base = Math.max(1, Math.round(fps));
+    const totalSec = Math.floor(frameIndex / base);
+    const ff = frameIndex % base;
+    const p2 = n => String(n).padStart(2, "0");
+    return `${p2(Math.floor(totalSec / 3600))}:${p2(Math.floor((totalSec % 3600) / 60))}:${p2(totalSec % 60)}:${p2(ff)}`;
+  }
+
   // Exact integral of a 0/1 PWM square wave over [t0, t1].
   // Duty is 0..1. phaseCycles is 0..1.
   function pwmIntegral(t0, t1, freq, duty, phaseCycles) {
@@ -775,7 +786,7 @@
     // Grid labels / frame info.
     ctx.font = "20px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(`Virtual camera frame ${frameIndex}`, 20, 30);
+    ctx.fillText(`Virtual camera frame ${frameIndex}  (${formatTimecode(frameIndex, fps)})`, 20, 30);
 
     ctx.font = "14px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.55)";

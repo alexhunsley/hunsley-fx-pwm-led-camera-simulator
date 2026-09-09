@@ -237,6 +237,19 @@
     gap: 8px;
   }
   .inline input[type="checkbox"] { width: auto; }
+  .graph-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    width: min(780px, 100%);
+    font-size: 13px;
+  }
+  .graph-controls .timescale {
+    flex: 1;
+    min-width: 200px;
+  }
+  .graph-controls .timescale input[type="range"] { flex: 1; }
   @media (max-width: 850px) {
     .wrap { grid-template-columns: 1fr; }
     .controls { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -431,10 +444,6 @@
         <input id="headroom" type="checkbox" />
         <span>Simulate headroom (hard clipping effect)</span>
       </div>
-      <div class="inline" style="margin-top:8px">
-        <input id="syncWaveform" type="checkbox" />
-        <span>Static waveform</span>
-      </div>
     </div>
   </section>
 
@@ -451,6 +460,17 @@
 
     <div class="screen" style="aspect-ratio: 4 / 1; max-height:180px">
       <canvas id="historyCanvas" width="960" height="220"></canvas>
+    </div>
+
+    <div class="graph-controls">
+      <div class="inline">
+        <input id="syncWaveform" type="checkbox" />
+        <span>Static waveform</span>
+      </div>
+      <div class="inline timescale">
+        <span>Timescale</span>
+        <input id="timescale" type="range" min="16" max="384" step="1" value="96" title="Stretch the graph along X (fewer frames shown = more stretched)" />
+      </div>
     </div>
 
     <div class="hud">
@@ -807,7 +827,9 @@
     hctx.fillStyle = "#090909";
     hctx.fillRect(0, 0, W, H);
 
-    const count = 96;
+    // Timescale: number of camera frames shown across the graph width. Fewer
+    // frames = each frame occupies more width = waveform stretched out more.
+    const count = Math.max(2, parseInt($("timescale").value, 10) || 96);
     // Sync waveform: pin the window to frame 0 so the graph is static (no scroll).
     // Sync on: pin to frame 0 (static). Sync off: window ends at the current
     // frame and scrolls immediately from the start (no initial fill-up delay).
@@ -979,6 +1001,10 @@
   });
 
   $("syncWaveform").addEventListener("change", () => {
+    drawHistory();
+  });
+
+  $("timescale").addEventListener("input", () => {
     drawHistory();
   });
 

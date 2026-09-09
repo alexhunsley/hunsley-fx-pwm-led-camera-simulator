@@ -549,7 +549,7 @@
     const over = fps > rmfr;
     $("rmfrBanner").classList.toggle("warn", over);
     $("rmfrHint").textContent = over
-      ? `current ${fps} fps exceeds this — only ${(pwm * exposure).toFixed(1)} PWM cycles per exposure (want ≥ ${MIN_CYCLES_PER_EXPOSURE})`
+      ? `the current ${fps} fps shows only ${(pwm * exposure).toFixed(1)} PWM cycles per exposure (we want ≥ ${MIN_CYCLES_PER_EXPOSURE})`
       : `at ${angle}° / ${pwm.toFixed(0)} Hz, for ≥ ${MIN_CYCLES_PER_EXPOSURE} PWM cycles per exposure`;
   }
 

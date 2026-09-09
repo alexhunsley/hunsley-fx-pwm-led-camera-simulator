@@ -825,16 +825,16 @@
     }
 
     const traces = [
-      { idx: 0, stroke: "rgb(255,90,90)",   faint: "rgba(255,90,90,0.40)",  label: "R" },
-      { idx: 1, stroke: "rgb(90,255,90)",   faint: "rgba(90,255,90,0.40)",  label: "G" },
-      { idx: 2, stroke: "rgb(100,140,255)", faint: "rgba(100,140,255,0.40)", label: "B" }
+      { idx: 0, stroke: "rgb(255,90,90)",   faint: "rgba(255,90,90,0.70)",  label: "R" },
+      { idx: 1, stroke: "rgb(90,255,90)",   faint: "rgba(90,255,90,0.70)",  label: "G" },
+      { idx: 2, stroke: "rgb(100,140,255)", faint: "rgba(100,140,255,0.70)", label: "B" }
     ];
 
     // Faint dashed line at each channel's commanded (target) level.
     if (SHOW_TARGET_LEVELS) {
       hctx.save();
-      hctx.setLineDash([5, 4]);
-      hctx.lineWidth = 1;
+      hctx.setLineDash([7, 4]);
+      hctx.lineWidth = 2;
       for (const tr of traces) {
         const y = plotY(duties[tr.idx]);
         hctx.strokeStyle = tr.faint;

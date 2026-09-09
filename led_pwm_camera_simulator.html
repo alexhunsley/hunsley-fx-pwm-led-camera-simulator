@@ -431,6 +431,10 @@
         <input id="headroom" type="checkbox" />
         <span>Simulate headroom (hard clipping effect)</span>
       </div>
+      <div class="inline" style="margin-top:8px">
+        <input id="syncWaveform" type="checkbox" />
+        <span>Static waveform</span>
+      </div>
     </div>
   </section>
 
@@ -804,7 +808,8 @@
     hctx.fillRect(0, 0, W, H);
 
     const count = 96;
-    const start = Math.max(0, virtualFrame - count + 1);
+    // Sync waveform: pin the window to frame 0 so the graph is static (no scroll).
+    const start = $("syncWaveform").checked ? 0 : Math.max(0, virtualFrame - count + 1);
     const end = start + count;
     const gx = selectedLed.gx, gy = selectedLed.gy;
 
@@ -825,9 +830,9 @@
     }
 
     const traces = [
-      { idx: 0, stroke: "rgb(255,90,90)",   faint: "rgba(255,90,90,0.70)",  label: "R" },
-      { idx: 1, stroke: "rgb(90,255,90)",   faint: "rgba(90,255,90,0.70)",  label: "G" },
-      { idx: 2, stroke: "rgb(100,140,255)", faint: "rgba(100,140,255,0.70)", label: "B" }
+      { idx: 0, stroke: "rgb(255,90,90)",   faint: "rgba(255,90,90,0.50)",  label: "R" },
+      { idx: 1, stroke: "rgb(90,255,90)",   faint: "rgba(90,255,90,0.50)",  label: "G" },
+      { idx: 2, stroke: "rgb(100,140,255)", faint: "rgba(100,140,255,0.50)", label: "B" }
     ];
 
     // Faint dashed line at each channel's commanded (target) level.
@@ -980,6 +985,10 @@
 
   $("headroom").addEventListener("change", () => {
     draw();
+    drawHistory();
+  });
+
+  $("syncWaveform").addEventListener("change", () => {
     drawHistory();
   });
 

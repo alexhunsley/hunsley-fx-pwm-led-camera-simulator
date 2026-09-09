@@ -809,7 +809,9 @@
 
     const count = 96;
     // Sync waveform: pin the window to frame 0 so the graph is static (no scroll).
-    const start = $("syncWaveform").checked ? 0 : Math.max(0, virtualFrame - count + 1);
+    // Sync on: pin to frame 0 (static). Sync off: window ends at the current
+    // frame and scrolls immediately from the start (no initial fill-up delay).
+    const start = $("syncWaveform").checked ? 0 : (virtualFrame - count + 1);
     const end = start + count;
     const gx = selectedLed.gx, gy = selectedLed.gy;
 
@@ -883,18 +885,6 @@
       hctx.fillText(tr.label, labelX[tr.idx], y);
     }
     hctx.restore();
-
-    // Current frame marker
-    const currentIndex = virtualFrame - start;
-    if (currentIndex >= 0 && currentIndex < count) {
-      const x = 42 + (W - 58) * currentIndex / (count - 1);
-      hctx.strokeStyle = "rgba(255,255,255,0.45)";
-      hctx.lineWidth = 1;
-      hctx.beginPath();
-      hctx.moveTo(x, 20);
-      hctx.lineTo(x, H - 25);
-      hctx.stroke();
-    }
   }
 
   function animate(now) {

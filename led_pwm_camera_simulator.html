@@ -719,8 +719,12 @@
 
     // Render each horizontal sensor-time strip independently.
     for (let s = 0; s < strips; s++) {
-      const y0 = (s / strips) * H;
-      const y1 = ((s + 1) / strips) * H;
+      // Snap strip edges to integer pixels so adjacent strips tile exactly.
+      // Fractional edges get anti-aliased by some rasterizers (Firefox/LibreWolf),
+      // leaving faint dark hairlines at every seam; integer edges share an exact
+      // boundary with no AA gap. Timing below still uses the true fractional centre.
+      const y0 = Math.round((s / strips) * H);
+      const y1 = Math.round(((s + 1) / strips) * H);
       const sensorFrac = (s + 0.5) / strips;
       const rowOffset = rolling ? sensorFrac * readout : 0;
       const tStart = frameStart + rowOffset;
@@ -733,13 +737,13 @@
         const b = integratedBrightness(tStart, exposure, pwm, duty, phaseCycles, gain);
         const v = Math.round(255 * b);
         ctx.fillStyle = `rgb(${v},${v},${v})`;
-        ctx.fillRect(0, y0, W, Math.ceil(y1 - y0) + 1);
+        ctx.fillRect(0, y0, W, y1 - y0);
         continue;
       }
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, y0, W, Math.ceil(y1 - y0) + 1);
+      ctx.rect(0, y0, W, y1 - y0);
       ctx.clip();
 
       for (let gy = 0; gy < rows; gy++) {

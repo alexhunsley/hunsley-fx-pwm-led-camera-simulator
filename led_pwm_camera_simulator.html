@@ -622,6 +622,14 @@
     $("rmfrHint").textContent = over
       ? `the current ${fps} fps shows only ${(pwm * exposure).toFixed(1)} PWM cycles per exposure (we want ≥ ${MIN_CYCLES_PER_EXPOSURE})`
       : `at ${angle}° / ${pwm.toFixed(0)} Hz, for ≥ ${MIN_CYCLES_PER_EXPOSURE} PWM cycles per exposure`;
+
+    // While animation is paused the animate() loop doesn't redraw, so changing a
+    // setting would otherwise leave the display stale. Redraw here to reflect the
+    // new settings on the current (frozen) frame.
+    if (pauseEl && pauseEl.checked) {
+      draw();
+      drawHistory();
+    }
   }
 
   function hsvToRgb(h, s, v) {
